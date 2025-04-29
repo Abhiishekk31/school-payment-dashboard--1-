@@ -2,27 +2,34 @@
 
 A modern, user-friendly dashboard for managing school payments and transactions. Built with Next.js, TypeScript, and Tailwind CSS.
 
-![Dashboard Overview](screenshots/Screenshot%202025-04-30%20at%203.04.00%20AM.png)
+![Dashboard Overview](screenshots/Dashboard.png)
 
 ## Table of Contents
 
-- [Features](#features)
-- [Tech Stack](#tech-stack)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-  - [Environment Variables](#environment-variables)
-  - [Running the Application](#running-the-application)
-- [Project Structure](#project-structure)
-- [Screenshots](#screenshots)
-- [Page Documentation](#page-documentation)
-  - [Dashboard](#dashboard)
-  - [Pay Fees](#pay-fees)
-  - [Transactions](#transactions)
-  - [Payment Callback](#payment-callback)
-- [API Integration](#api-integration)
-- [Styling and UI Components](#styling-and-ui-components)
-- [Contributing](#contributing)
+- [Edviron Acadpay - School Payment Dashboard](#edviron-acadpay---school-payment-dashboard)
+  - [Table of Contents](#table-of-contents)
+  - [Features](#features)
+  - [Tech Stack](#tech-stack)
+  - [Getting Started](#getting-started)
+    - [Prerequisites](#prerequisites)
+    - [Installation](#installation)
+    - [Environment Variables](#environment-variables)
+    - [Running the Application](#running-the-application)
+  - [Project Structure](#project-structure)
+  - [Screenshots](#screenshots)
+    - [Dashboard](#dashboard)
+    - [Pay Fees](#pay-fees)
+    - [Transactions](#transactions)
+    - [Payment Callback](#payment-callback)
+  - [Page Documentation](#page-documentation)
+    - [Dashboard](#dashboard-1)
+    - [Pay Fees](#pay-fees-1)
+    - [Transactions](#transactions-1)
+    - [Payment Callback](#payment-callback-1)
+  - [API Integration](#api-integration)
+  - [Styling and UI Components](#styling-and-ui-components)
+  - [Contributing](#contributing)
+  - [License](#license)
 
 ## Features
 
@@ -126,19 +133,19 @@ edviron-acadpay/
 ## Screenshots
 
 ### Dashboard
-![Dashboard](screenshots/Screenshot%202025-04-30%20at%203.04.00%20AM.png)
+![Dashboard](screenshots/Dashboard.png)
 *Main dashboard with transaction statistics and charts*
 
 ### Pay Fees
-![Pay Fees](screenshots/Screenshot%202025-04-30%20at%203.04.06%20AM.png)
+![Pay Fees](screenshots/Pay-fees.png)
 *Payment form for school fees*
 
 ### Transactions
-![Transactions](screenshots/Screenshot%202025-04-30%20at%203.04.09%20AM.png)
+![Transactions](screenshots/Transaction.png)
 *Transaction listing with filtering options*
 
 ### Payment Callback
-![Payment Callback](screenshots/Screenshot%202025-04-30%20at%203.04.25%20AM.png)
+![Payment Callback](screenshots/Payment-status.png)
 *Payment confirmation page*
 
 ## Page Documentation
