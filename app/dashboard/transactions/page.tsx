@@ -514,7 +514,7 @@ export default function TransactionsPage() {
                 <TableRow className="dark:text-gray-400">
                   <TableHead>
                     <div
-                      className="flex items-center cursor-pointer hover:text-primary dark:hover:text-primary transition-colors duration-200 group"
+                      className="flex items-center cursor-pointer hover:text-primary transition-colors duration-200 group text-gray-900 dark:text-gray-400"
                       onClick={() => handleSortChange("collect_id")}
                     >
                       Collect Id
@@ -533,7 +533,7 @@ export default function TransactionsPage() {
                   </TableHead>
                   <TableHead>
                     <div
-                      className="flex items-center cursor-pointer hover:text-primary dark:hover:text-primary transition-colors duration-200 group"
+                      className="flex items-center cursor-pointer hover:text-primary transition-colors duration-200 group text-gray-900 dark:text-gray-400"
                       onClick={() => handleSortChange("school_id")}
                     >
                       School Id
@@ -552,7 +552,7 @@ export default function TransactionsPage() {
                   </TableHead>
                   <TableHead>
                     <div
-                      className="flex items-center cursor-pointer hover:text-primary dark:hover:text-primary transition-colors duration-200 group"
+                      className="flex items-center cursor-pointer hover:text-primary transition-colors duration-200 group text-gray-900 dark:text-gray-400"
                       onClick={() => handleSortChange("gateway")}
                     >
                       Gateway
@@ -628,7 +628,7 @@ export default function TransactionsPage() {
                   </TableHead>
                   <TableHead>
                     <div
-                      className="flex items-center cursor-pointer hover:text-primary dark:hover:text-primary transition-colors duration-200 group"
+                      className="flex items-center cursor-pointer hover:text-primary transition-colors duration-200 group text-gray-900 dark:text-gray-400"
                       onClick={() => handleSortChange("custom_order_id")}
                     >
                       Custom Order Id
@@ -687,36 +687,36 @@ export default function TransactionsPage() {
                   transactions.map((transaction, index) => (
                     <TableRow
                       key={transaction.collect_id || index}
-                      className="group transition-all duration-300 hover:bg-primary/5 dark:hover:bg-primary/10 cursor-pointer dark:text-white"
+                      className="group transition-all duration-300 hover:bg-primary/5 dark:hover:bg-primary/10 cursor-pointer"
                     >
                       <TableCell className="font-medium relative overflow-hidden">
                         <div className="absolute inset-0 bg-primary/5 dark:bg-primary/10 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
-                        <span className="relative z-10 group-hover:text-primary dark:text-white dark:group-hover:text-primary transition-colors duration-300">
+                        <span className="relative z-10 text-gray-900 dark:text-gray-700 group-hover:text-primary dark:group-hover:text-primary transition-colors duration-300">
                           {transaction.collect_id || "-"}
                         </span>
                       </TableCell>
                       <TableCell>
                         <div className="transform group-hover:translate-x-2 transition-transform duration-300">
-                          <div className="text-xs text-muted-foreground dark:text-gray-400 group-hover:text-primary/70 dark:group-hover:text-primary">
+                          <div className="text-xs text-gray-500 dark:text-gray-400 group-hover:text-primary/70 dark:group-hover:text-primary">
                             {getSchoolName(transaction.school_id)}
                           </div>
-                          <div className="dark:text-white group-hover:text-primary dark:group-hover:text-primary">
+                          <div className="text-gray-900 dark:text-gray-600 group-hover:text-primary dark:group-hover:text-primary">
                             {transaction.school_id || "-"}
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <span className="dark:text-white group-hover:text-primary dark:group-hover:text-primary transition-colors duration-300">
+                        <span className="text-gray-900 dark:text-gray-700 group-hover:text-primary dark:group-hover:text-primary transition-colors duration-300">
                           {transaction.gateway || "-"}
                         </span>
                       </TableCell>
                       <TableCell className="text-right">
-                        <span className="dark:text-white group-hover:text-primary dark:group-hover:text-primary transition-colors duration-300">
+                        <span className="text-gray-900 dark:text-gray-700 group-hover:text-primary dark:group-hover:text-primary transition-colors duration-300">
                           ₹{transaction.order_amount?.toLocaleString() || "-"}
                         </span>
                       </TableCell>
                       <TableCell className="text-right">
-                        <span className="dark:text-white group-hover:text-primary dark:group-hover:text-primary transition-colors duration-300">
+                        <span className="text-gray-900 dark:text-gray-700 group-hover:text-primary dark:group-hover:text-primary transition-colors duration-300">
                           ₹{transaction.transaction_amount?.toLocaleString() || "-"}
                         </span>
                       </TableCell>
@@ -730,7 +730,7 @@ export default function TransactionsPage() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <span className="dark:text-white group-hover:text-primary dark:group-hover:text-primary transition-colors duration-300">
+                        <span className="text-gray-900 dark:text-gray-100 group-hover:text-primary dark:group-hover:text-primary transition-colors duration-300">
                           {transaction.custom_order_id || "-"}
                         </span>
                       </TableCell>
