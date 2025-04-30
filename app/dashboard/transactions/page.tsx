@@ -1,191 +1,384 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ChevronLeft, ChevronRight, Download, Filter, Search, SortAsc, SortDesc } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
-import { transactionService } from "@/lib/services/transaction-service"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Label } from "@/components/ui/label"
+import { useEffect, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Filter,
+  Search,
+  SortAsc,
+  SortDesc,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { transactionService } from "@/lib/services/transaction-service";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { DatePicker } from "@/components/date-picker";
+import { format } from "date-fns";
 
-// Dummy school data mapping
-const SCHOOLS = {
-  "65b0e6293e9f76a9694d84b4": "Edviron School",
+// Real school data mapping
+const SCHOOLS: { [key: string]: string } = {
+  "65b0e6293e9f76a9694d84b4": "Edviron school"
+};
+
+interface ITransaction {
+  collect_id: string;
+  order_id: string;
+  transaction_amount: number;
+  payment_mode: string;
+  bank_reference: string;
+  payment_time: string;
+  status: string;
+  error_message: string;
+  school_id: string;
+  order_amount: number;
+  custom_order_id: string;
+  gateway: string;
 }
 
 export default function TransactionsPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Parse query parameters
-  const page = Number.parseInt(searchParams.get("page") || "1")
-  const limit = Number.parseInt(searchParams.get("limit") || "10")
-  const sort = searchParams.get("sort") || "payment_time"
-  const order = searchParams.get("order") || "desc"
-  const status = searchParams.get("status") || ""
-  const schoolId = searchParams.get("schoolId") || ""
-  const searchQuery = searchParams.get("search") || ""
+  const page = Number.parseInt(searchParams.get("page") || "1");
+  const limit = Number.parseInt(searchParams.get("limit") || "10");
+  const sort = searchParams.get("sort") || "payment_time";
+  const order = searchParams.get("order") || "desc";
+  const status = searchParams.get("status") || "";
+  const schoolId = searchParams.get("schoolId") || "";
+  const searchQuery = searchParams.get("search") || "";
+  const fromDate = searchParams.get("fromDate") || "";
+  const toDate = searchParams.get("toDate") || "";
 
-  const [transactions, setTransactions] = useState([])
-  const [totalTransactions, setTotalTransactions] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [selectedStatuses, setSelectedStatuses] = useState(status ? status.split(",") : [])
-  const [selectedSchools, setSelectedSchools] = useState(schoolId ? [schoolId] : [])
-  const [searchTerm, setSearchTerm] = useState(searchQuery)
+  const [transactions, setTransactions] = useState<ITransaction[]>([]);
+  const [totalTransactions, setTotalTransactions] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [currentPage, setCurrentPage] = useState(page);
+  const [pageLimit, setPageLimit] = useState(limit);
+  const [loading, setLoading] = useState(true);
+  const [selectedStatuses, setSelectedStatuses] = useState(
+    status ? status.split(",") : []
+  );
+  const [selectedSchools, setSelectedSchools] = useState(
+    schoolId ? schoolId.split(",") : []
+  );
 
-  // Hover effect state
-  const [hoveredRow, setHoveredRow] = useState(null)
+  const [dateRange, setDateRange] = useState({
+    from: fromDate ? new Date(fromDate) : null,
+    to: toDate ? new Date(toDate) : null,
+  });
+  const [allTransactions, setAllTransactions] = useState([]);
+  const [cachedParams, setCachedParams] = useState({
+    page,
+    limit,
+    sort,
+    order,
+    status,
+    schoolId,
+    fromDate,
+    toDate,
+    searchQuery,
+  });
+
+  // Check if filter parameters have changed
+  const haveFiltersChanged = () => {
+    return (
+      cachedParams.status !== status ||
+      cachedParams.schoolId !== schoolId ||
+      cachedParams.fromDate !== fromDate ||
+      cachedParams.toDate !== toDate ||
+      cachedParams.searchQuery !== searchQuery
+    );
+  };
+
+  // Check if pagination or sorting parameters have changed
+  const havePaginationOrSortingChanged = () => {
+    return (
+      cachedParams.page !== page ||
+      cachedParams.limit !== limit ||
+      cachedParams.sort !== sort ||
+      cachedParams.order !== order
+    );
+  };
 
   useEffect(() => {
-    fetchTransactions()
-  }, [page, limit, sort, order, status, schoolId, searchQuery])
+    // Only fetch from API when necessary (first load or search term changes)
+    if (
+      allTransactions.length === 0 ||
+      searchQuery !== cachedParams.searchQuery
+    ) {
+      fetchTransactions();
+    } else {
+      // Otherwise filter the existing data locally
+      applyLocalFilters();
+    }
+
+    // Update cached params
+    setCachedParams({
+      page,
+      limit,
+      sort,
+      order,
+      status,
+      schoolId,
+      fromDate,
+      toDate,
+      searchQuery,
+    });
+  }, [
+    page,
+    limit,
+    sort,
+    order,
+    status,
+    schoolId,
+    fromDate,
+    toDate,
+    searchQuery,
+  ]);
 
   const fetchTransactions = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      let response
-      if (schoolId) {
-        response = await transactionService.getSchoolTransactions(
-          schoolId,
-          page,
-          limit,
-          sort,
-          order,
-          status,
-          searchQuery,
-        )
-      } else {
-        response = await transactionService.getAllTransactions(
-          page,
-          limit,
-          sort,
-          order,
-          status,
-          searchQuery,
-        )
-      }
-      setTransactions(response.data || [])
-      setTotalTransactions(response.total || 0)
-    } catch (error) {
-      console.error("Error fetching transactions:", error)
-      setTransactions([])
-      setTotalTransactions(0)
-    } finally {
-      setLoading(false)
-    }
-  }
+      // Only pass search parameter to backend, handle other filters locally
+      const response = await transactionService.getAllTransactions(
+        1, // Always fetch page 1
+        sort,
+        order,
+        "", // Don't filter by status on backend
+        "", // Don't filter by date on backend
+        "", // Don't filter by date on backend
+        searchQuery, // Only search needs to go to backend
+        1000 // Fetch more records to handle local filtering
+      );
 
-  const updateQueryParams = (params: Record<string, string>) => {
-    const newParams = new URLSearchParams(searchParams)
+      console.log("Fetched transactions:", response);
+
+      // Store all transactions for local filtering
+      setAllTransactions(response.data || []);
+      setTotalTransactions(response.data.length);
+      setTotalPages(Math.ceil(response.data.length / limit));
+
+      // Apply pagination
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      const paginatedData = response.data.slice(startIndex, endIndex);
+
+      setTransactions(paginatedData);
+      setCurrentPage(page);
+    } catch (error) {
+      console.error("Error fetching transactions:", error);
+      setTransactions([]);
+      setAllTransactions([]);
+      setTotalTransactions(0);
+      setTotalPages(1);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const applyLocalFilters = () => {
+    setLoading(true);
+
+    try {
+      // Start with all transactions
+      let filteredData: ITransaction[] = [...allTransactions];
+
+      // Apply status filter
+      if (status) {
+        const statusArray = status.split(",");
+        filteredData = filteredData.filter((t) =>
+          statusArray.includes(t.status)
+        );
+      }
+
+      // Apply school filter
+      if (schoolId) {
+        const schoolArray = schoolId.split(",");
+        filteredData = filteredData.filter((t) =>
+          schoolArray.includes(t.school_id)
+        );
+      }
+
+      // Apply date range filter
+      if (fromDate) {
+        const fromDateObj = new Date(fromDate);
+        filteredData = filteredData.filter(
+          (t) => new Date(t.payment_time) >= fromDateObj
+        );
+      }
+
+      if (toDate) {
+        const toDateObj = new Date(toDate);
+        // Add one day to include the end date fully
+        toDateObj.setDate(toDateObj.getDate() + 1);
+        filteredData = filteredData.filter(
+          (t) => new Date(t.payment_time) <= toDateObj
+        );
+      }
+
+      // Apply search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        filteredData = filteredData.filter(
+          (t) =>
+            (t.collect_id && t.collect_id.toLowerCase().includes(query)) ||
+            (t.custom_order_id &&
+              t.custom_order_id.toLowerCase().includes(query)) ||
+            (t.gateway && t.gateway.toLowerCase().includes(query))
+        );
+      }
+
+      // Apply sorting
+      if (sort) {
+        filteredData.sort((a, b) => {
+          let valueA = a[sort as keyof ITransaction];
+          let valueB = b[sort as keyof ITransaction];
+
+          // Handle numeric values
+          if (typeof valueA === "number" && typeof valueB === "number") {
+            return order === "asc" ? valueA - valueB : valueB - valueA;
+          }
+
+          // Handle date values
+          if (sort === "payment_time") {
+            valueA = new Date(valueA).getTime();
+            valueB = new Date(valueB).getTime();
+            return order === "asc" ? valueA - valueB : valueB - valueA;
+          }
+
+          // Handle string values
+          valueA = String(valueA || "").toLowerCase();
+          valueB = String(valueB || "").toLowerCase();
+          return order === "asc"
+            ? valueA.localeCompare(valueB)
+            : valueB.localeCompare(valueA);
+        });
+      }
+
+      // Calculate total for pagination
+      setTotalTransactions(filteredData.length);
+      setTotalPages(Math.ceil(filteredData.length / limit));
+
+      // Apply pagination
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      const paginatedData = filteredData.slice(startIndex, endIndex);
+
+      setTransactions(paginatedData);
+      setCurrentPage(page);
+    } catch (error) {
+      console.error("Error applying filters:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateQueryParams = (
+    params: { [s: string]: unknown } | ArrayLike<unknown>
+  ) => {
+    const newParams = new URLSearchParams(searchParams.toString());
 
     Object.entries(params).forEach(([key, value]) => {
       if (value === null || value === "") {
-        newParams.delete(key)
+        newParams.delete(key);
       } else {
-        newParams.set(key, value)
+        newParams.set(key, String(value));
       }
-    })
+    });
 
-    router.replace(`/dashboard/transactions?${newParams.toString()}`)
-  }
+    const url = `/dashboard/transactions?${newParams.toString()}`;
+    console.log("Navigating to:", url);
+    router.push(url);
+  };
 
   const handlePageChange = (newPage: number) => {
-    if (newPage >= 1 && newPage <= totalPages) {
-      updateQueryParams({ page: newPage.toString() })
+    console.log("Changing page to:", newPage);
+    updateQueryParams({ page: newPage.toString() });
+  };
+
+  const handleLimitChange = (newLimit: { toString: () => any }) => {
+    console.log("Changing limit to:", newLimit);
+    setPageLimit(Number(newLimit));
+    updateQueryParams({ page: "1", limit: newLimit.toString() });
+  };
+
+  const handleSortChange = (column: string) => {
+    if (sort === column) {
+      updateQueryParams({ order: order === "asc" ? "desc" : "asc" });
+    } else {
+      updateQueryParams({ sort: column, order: "asc" });
     }
-  }
-
-  const handleLimitChange = (newLimit: number) => {
-    updateQueryParams({ 
-      limit: newLimit.toString(),
-      page: "1" // Reset to first page when changing limit
-    })
-  }
-
-  const handleSort = (column: string) => {
-    const newOrder = sort === column && order === "asc" ? "desc" : "asc"
-    updateQueryParams({ 
-      sort: column,
-      order: newOrder
-    })
-  }
-
-  const handleStatusFilterChange = (status: string) => {
-    updateQueryParams({ 
-      status,
-      page: "1" // Reset to first page when changing status
-    })
-  }
-
-  const handleSchoolFilterChange = (schoolId: string) => {
-    updateQueryParams({ 
-      schoolId,
-      page: "1" // Reset to first page when changing school
-    })
-  }
-
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const query = e.target.value
-    updateQueryParams({ 
-      search: query,
-      page: "1" // Reset to first page when searching
-    })
-  }
+  };
 
   const handleClearFilters = () => {
-    updateQueryParams({ 
-      status: "",
-      schoolId: "",
-      page: "1"
-    })
-  }
+    setSelectedStatuses([]);
+    setSelectedSchools([]);
+    setDateRange({ from: null, to: null });
+
+    router.push("/dashboard/transactions");
+  };
 
   const handleApplyFilters = () => {
-    const params: Record<string, string> = {
-      page: "1", // Reset to first page when applying filters
+    updateQueryParams({
+      page: "1",
       status: selectedStatuses.length > 0 ? selectedStatuses.join(",") : "",
-      schoolId: selectedSchools.length > 0 ? selectedSchools[0] : ""
-    }
-    updateQueryParams(params)
-  }
+      schoolId: selectedSchools.length > 0 ? selectedSchools.join(",") : "",
+      fromDate: dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : "",
+      toDate: dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : "",
+    });
+  };
 
-  const getStatusBadgeColor = (status) => {
+  const getStatusBadgeColor = (status: string) => {
     switch (status?.toLowerCase()) {
       case "success":
-        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
       case "pending":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
       case "failed":
-        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
+        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300";
       default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
+        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300";
     }
-  }
-
-  const totalPages = Math.ceil(totalTransactions / limit)
+  };
 
   // Get school name from school ID
-  const getSchoolName = (schoolId) => {
-    return SCHOOLS[schoolId] || schoolId
-  }
-
-  // Update the table columns to match requirements
-  const columns = [
-    { id: "collect_id", label: "Collect ID", sortable: true },
-    { id: "school_id", label: "School", sortable: true },
-    { id: "gateway", label: "Gateway", sortable: true },
-    { id: "order_amount", label: "Order Amount", sortable: true },
-    { id: "transaction_amount", label: "Transaction Amount", sortable: true },
-    { id: "status", label: "Status", sortable: true },
-    { id: "custom_order_id", label: "Custom Order ID", sortable: true },
-  ]
+  const getSchoolName = (schoolId: string) => {
+    return SCHOOLS[schoolId] || schoolId;
+  };
 
   return (
     <div className="space-y-4 w-full">
@@ -193,27 +386,13 @@ export default function TransactionsPage() {
         <CardHeader>
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <CardTitle>Transactions Overview</CardTitle>
-              <CardDescription>View and manage all payment transactions</CardDescription>
+              <CardTitle className="dark:text-white">Transactions</CardTitle>
+              <CardDescription className="dark:text-gray-400">
+                Manage and view all payment transactions
+              </CardDescription>
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
-              <form onSubmit={handleSearch} className="flex gap-2">
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="search"
-                    placeholder="Search by Collect ID or Custom Order ID..."
-                    className="pl-8 w-full md:w-[300px]"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-                <Button type="submit" variant="secondary" size="icon">
-                  <Search className="h-4 w-4" />
-                </Button>
-              </form>
-
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="outline" className="flex gap-2">
@@ -228,21 +407,76 @@ export default function TransactionsPage() {
                       <div className="space-y-2">
                         <h5 className="text-sm font-medium">Status</h5>
                         <div className="flex flex-wrap gap-2">
-                          {["success", "pending", "failed"].map((statusOption) => (
-                            <div key={statusOption} className="flex items-center space-x-2">
+                          {["success", "pending", "failed"].map(
+                            (statusOption) => (
+                              <div
+                                key={statusOption}
+                                className="flex items-center space-x-2"
+                              >
+                                <Checkbox
+                                  id={`status-${statusOption}`}
+                                  checked={selectedStatuses.includes(
+                                    statusOption
+                                  )}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      setSelectedStatuses([
+                                        ...selectedStatuses,
+                                        statusOption,
+                                      ]);
+                                    } else {
+                                      setSelectedStatuses(
+                                        selectedStatuses.filter(
+                                          (s) => s !== statusOption
+                                        )
+                                      );
+                                    }
+                                  }}
+                                />
+                                <Label
+                                  htmlFor={`status-${statusOption}`}
+                                  className="capitalize"
+                                >
+                                  {statusOption}
+                                </Label>
+                              </div>
+                            )
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <h5 className="text-sm font-medium">School</h5>
+                        <div className="max-h-40 overflow-y-auto">
+                          {Object.entries(SCHOOLS).map(([id, name]) => (
+                            <div
+                              key={id}
+                              className="flex items-center space-x-2 mb-2"
+                            >
                               <Checkbox
-                                id={`status-${statusOption}`}
-                                checked={selectedStatuses.includes(statusOption)}
+                                id={`school-${id}`}
+                                checked={selectedSchools.includes(id)}
                                 onCheckedChange={(checked) => {
                                   if (checked) {
-                                    setSelectedStatuses([...selectedStatuses, statusOption])
+                                    setSelectedSchools([
+                                      ...selectedSchools,
+                                      id,
+                                    ]);
                                   } else {
-                                    setSelectedStatuses(selectedStatuses.filter(s => s !== statusOption))
+                                    setSelectedSchools(
+                                      selectedSchools.filter((s) => s !== id)
+                                    );
                                   }
                                 }}
                               />
-                              <Label htmlFor={`status-${statusOption}`} className="capitalize">
-                                {statusOption}
+                              <Label
+                                htmlFor={`school-${id}`}
+                                className="text-sm"
+                              >
+                                {name}
+                                <span className="text-xs text-muted-foreground block">
+                                  ID: {id}
+                                </span>
                               </Label>
                             </div>
                           ))}
@@ -250,101 +484,256 @@ export default function TransactionsPage() {
                       </div>
 
                       <div className="space-y-2">
-                        <h5 className="text-sm font-medium">Schools</h5>
-                        <div className="flex flex-wrap gap-2">
-                          {Object.entries(SCHOOLS).map(([id, name]) => (
-                            <div key={id} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`school-${id}`}
-                                checked={selectedSchools.includes(id)}
-                                onCheckedChange={(checked) => {
-                                  if (checked) {
-                                    setSelectedSchools([...selectedSchools, id])
-                                  } else {
-                                    setSelectedSchools(selectedSchools.filter(s => s !== id))
-                                  }
-                                }}
-                              />
-                              <Label htmlFor={`school-${id}`}>{name}</Label>
-                            </div>
-                          ))}
-                        </div>
+                        <h5 className="text-sm font-medium">Date Range</h5>
+                        <DatePicker
+                          dateRange={dateRange}
+                          setDateRange={setDateRange}
+                          className={undefined}
+                        />
                       </div>
 
-                      <div className="flex justify-between pt-4">
+                      <div className="flex justify-between">
                         <Button variant="outline" onClick={handleClearFilters}>
-                          Clear Filters
+                          Clear
                         </Button>
-                        <Button onClick={handleApplyFilters}>Apply Filters</Button>
+                        <Button onClick={handleApplyFilters}>
+                          Apply Filters
+                        </Button>
                       </div>
                     </div>
                   </PopoverContent>
                 </Popover>
-
-                <Button variant="outline" size="icon">
-                  <Download className="h-4 w-4" />
-                </Button>
               </div>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
+        <CardContent className="w-full">
+          <div className="rounded-md border w-full overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
-                  {columns.map((column) => (
-                    <TableHead
-                      key={column.id}
-                      className="cursor-pointer"
-                      onClick={() => handleSort(column.id)}
+                <TableRow className="dark:text-gray-400">
+                  <TableHead>
+                    <div
+                      className="flex items-center cursor-pointer hover:text-primary dark:hover:text-primary transition-colors duration-200 group"
+                      onClick={() => handleSortChange("collect_id")}
                     >
-                      <div className="flex items-center gap-1">
-                        {column.label}
-                        {sort === column.id && (
-                          order === "asc" ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />
-                        )}
-                      </div>
-                    </TableHead>
-                  ))}
+                      Collect Id
+                      {sort === "collect_id" ? (
+                        order === "asc" ? (
+                          <SortAsc className="ml-1 h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
+                        ) : (
+                          <SortDesc className="ml-1 h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
+                        )
+                      ) : (
+                        <div className="ml-1 h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                          <SortAsc className="h-4 w-4" />
+                        </div>
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead>
+                    <div
+                      className="flex items-center cursor-pointer hover:text-primary dark:hover:text-primary transition-colors duration-200 group"
+                      onClick={() => handleSortChange("school_id")}
+                    >
+                      School Id
+                      {sort === "school_id" ? (
+                        order === "asc" ? (
+                          <SortAsc className="ml-1 h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
+                        ) : (
+                          <SortDesc className="ml-1 h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
+                        )
+                      ) : (
+                        <div className="ml-1 h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                          <SortAsc className="h-4 w-4" />
+                        </div>
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead>
+                    <div
+                      className="flex items-center cursor-pointer hover:text-primary dark:hover:text-primary transition-colors duration-200 group"
+                      onClick={() => handleSortChange("gateway")}
+                    >
+                      Gateway
+                      {sort === "gateway" ? (
+                        order === "asc" ? (
+                          <SortAsc className="ml-1 h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
+                        ) : (
+                          <SortDesc className="ml-1 h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
+                        )
+                      ) : (
+                        <div className="ml-1 h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                          <SortAsc className="h-4 w-4" />
+                        </div>
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-right dark:text-gray-400">
+                    <div
+                      className="flex items-center justify-end cursor-pointer hover:text-primary dark:hover:text-primary transition-colors duration-200 group"
+                      onClick={() => handleSortChange("order_amount")}
+                    >
+                      Order Amount
+                      {sort === "order_amount" ? (
+                        order === "asc" ? (
+                          <SortAsc className="ml-1 h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
+                        ) : (
+                          <SortDesc className="ml-1 h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
+                        )
+                      ) : (
+                        <div className="ml-1 h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                          <SortAsc className="h-4 w-4" />
+                        </div>
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-right dark:text-gray-400">
+                    <div
+                      className="flex items-center justify-end cursor-pointer hover:text-primary dark:hover:text-primary transition-colors duration-200 group"
+                      onClick={() => handleSortChange("transaction_amount")}
+                    >
+                      Transaction Amount
+                      {sort === "transaction_amount" ? (
+                        order === "asc" ? (
+                          <SortAsc className="ml-1 h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
+                        ) : (
+                          <SortDesc className="ml-1 h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
+                        )
+                      ) : (
+                        <div className="ml-1 h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                          <SortAsc className="h-4 w-4" />
+                        </div>
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-center dark:text-gray-400">
+                    <div
+                      className="flex items-center justify-center cursor-pointer hover:text-primary dark:hover:text-primary transition-colors duration-200 group"
+                      onClick={() => handleSortChange("status")}
+                    >
+                      Status
+                      {sort === "status" ? (
+                        order === "asc" ? (
+                          <SortAsc className="ml-1 h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
+                        ) : (
+                          <SortDesc className="ml-1 h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
+                        )
+                      ) : (
+                        <div className="ml-1 h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                          <SortAsc className="h-4 w-4" />
+                        </div>
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead>
+                    <div
+                      className="flex items-center cursor-pointer hover:text-primary dark:hover:text-primary transition-colors duration-200 group"
+                      onClick={() => handleSortChange("custom_order_id")}
+                    >
+                      Custom Order Id
+                      {sort === "custom_order_id" ? (
+                        order === "asc" ? (
+                          <SortAsc className="ml-1 h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
+                        ) : (
+                          <SortDesc className="ml-1 h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
+                        )
+                      ) : (
+                        <div className="ml-1 h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                          <SortAsc className="h-4 w-4" />
+                        </div>
+                      )}
+                    </div>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  Array.from({ length: limit }).map((_, index) => (
+                  Array.from({ length: pageLimit }).map((_, index) => (
                     <TableRow key={index}>
-                      {columns.map((column) => (
-                        <TableCell key={column.id}>
-                          <Skeleton className="h-4 w-[100px]" />
-                        </TableCell>
-                      ))}
+                      <TableCell>
+                        <Skeleton className="h-5 w-40" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-5 w-32" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-5 w-20" />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Skeleton className="h-5 w-16 ml-auto" />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Skeleton className="h-5 w-16 ml-auto" />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Skeleton className="h-5 w-16 mx-auto" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-5 w-32" />
+                      </TableCell>
                     </TableRow>
                   ))
                 ) : transactions.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={columns.length} className="text-center py-8">
+                    <TableCell
+                      colSpan={7}
+                      className="text-center py-8 text-muted-foreground"
+                    >
                       No transactions found
                     </TableCell>
                   </TableRow>
                 ) : (
-                  transactions.map((transaction) => (
+                  transactions.map((transaction, index) => (
                     <TableRow
-                      key={transaction.collect_id}
-                      className="table-row-hover-effect"
-                      onMouseEnter={() => setHoveredRow(transaction.collect_id)}
-                      onMouseLeave={() => setHoveredRow(null)}
+                      key={transaction.collect_id || index}
+                      className="group transition-all duration-300 hover:bg-primary/5 dark:hover:bg-primary/10 cursor-pointer dark:text-white"
                     >
-                      <TableCell>{transaction.collect_id}</TableCell>
-                      <TableCell>{getSchoolName(transaction.school_id)}</TableCell>
-                      <TableCell>{transaction.gateway}</TableCell>
-                      <TableCell>₹{transaction.order_amount}</TableCell>
-                      <TableCell>₹{transaction.transaction_amount}</TableCell>
+                      <TableCell className="font-medium relative overflow-hidden">
+                        <div className="absolute inset-0 bg-primary/5 dark:bg-primary/10 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
+                        <span className="relative z-10 group-hover:text-primary dark:text-white dark:group-hover:text-primary transition-colors duration-300">
+                          {transaction.collect_id || "-"}
+                        </span>
+                      </TableCell>
                       <TableCell>
-                        <Badge className={getStatusBadgeColor(transaction.status)}>
-                          {transaction.status}
+                        <div className="transform group-hover:translate-x-2 transition-transform duration-300">
+                          <div className="text-xs text-muted-foreground dark:text-gray-400 group-hover:text-primary/70 dark:group-hover:text-primary">
+                            {getSchoolName(transaction.school_id)}
+                          </div>
+                          <div className="dark:text-white group-hover:text-primary dark:group-hover:text-primary">
+                            {transaction.school_id || "-"}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="dark:text-white group-hover:text-primary dark:group-hover:text-primary transition-colors duration-300">
+                          {transaction.gateway || "-"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <span className="dark:text-white group-hover:text-primary dark:group-hover:text-primary transition-colors duration-300">
+                          ₹{transaction.order_amount?.toLocaleString() || "-"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <span className="dark:text-white group-hover:text-primary dark:group-hover:text-primary transition-colors duration-300">
+                          ₹{transaction.transaction_amount?.toLocaleString() || "-"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge
+                          className={`${getStatusBadgeColor(
+                            transaction.status
+                          )} transform group-hover:scale-110 transition-all duration-300 group-hover:shadow-lg`}
+                        >
+                          {transaction.status || "Unknown"}
                         </Badge>
                       </TableCell>
-                      <TableCell>{transaction.custom_order_id}</TableCell>
+                      <TableCell>
+                        <span className="dark:text-white group-hover:text-primary dark:group-hover:text-primary transition-colors duration-300">
+                          {transaction.custom_order_id || "-"}
+                        </span>
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -353,50 +742,64 @@ export default function TransactionsPage() {
           </div>
 
           <div className="flex items-center justify-between mt-4">
-            <div className="flex items-center gap-2">
-              <Select
-                value={limit.toString()}
-                onValueChange={(value) => handleLimitChange(Number(value))}
-              >
-                <SelectTrigger className="w-[100px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="10">10 / page</SelectItem>
-                  <SelectItem value="20">20 / page</SelectItem>
-                  <SelectItem value="50">50 / page</SelectItem>
-                  <SelectItem value="100">100 / page</SelectItem>
-                </SelectContent>
-              </Select>
-              <span className="text-sm text-muted-foreground">
-                Showing {transactions.length} of {totalTransactions} transactions
-              </span>
+            <div className="flex items-center space-x-2">
+              <p className="text-sm text-muted-foreground dark:text-gray-400">
+                Showing{" "}
+                <span className="font-medium dark:text-white">
+                  {transactions.length > 0 ? (currentPage - 1) * pageLimit + 1 : 0}
+                </span>{" "}
+                to{" "}
+                <span className="font-medium dark:text-white">
+                  {Math.min(currentPage * pageLimit, totalTransactions)}
+                </span>{" "}
+                of <span className="font-medium dark:text-white">{totalTransactions}</span>{" "}
+                results
+              </p>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => handlePageChange(page - 1)}
-                disabled={page === 1}
+            <div className="flex items-center space-x-2">
+              <Select
+                value={pageLimit.toString()}
+                onValueChange={handleLimitChange}
               >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="text-sm">
-                Page {page} of {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => handlePageChange(page + 1)}
-                disabled={page === totalPages}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+                <SelectTrigger className="w-[70px] dark:text-white">
+                  <SelectValue placeholder={pageLimit} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5</SelectItem>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                  disabled={currentPage <= 1}
+                  className="hover:bg-primary/10 hover:border-primary transition-all duration-300 hover:scale-105 disabled:hover:scale-100 dark:text-white"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm font-medium px-4 dark:text-white">
+                  {currentPage} / {Math.max(1, totalPages)}
+                </span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage >= totalPages || totalPages === 0}
+                  className="hover:bg-primary/10 hover:border-primary transition-all duration-300 hover:scale-105 disabled:hover:scale-100 dark:text-white"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

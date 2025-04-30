@@ -1,7 +1,7 @@
 import axios from "axios"
 
 // Set base URL from environment variable or default to localhost
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://jrhjg91r-3333.inc1.devtunnels.ms"
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://instaedupay.onrender.com"
 
 // Create axios instance with base URL
 const api = axios.create({
@@ -14,9 +14,11 @@ const api = axios.create({
 // Add request interceptor to include auth token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("token")
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+    if (typeof window !== "undefined") {
+      const token = localStorage.getItem("token")
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`
+      }
     }
     return config
   },
@@ -25,13 +27,13 @@ api.interceptors.request.use(
 
 export const transactionService = {
   // Create a new payment
-  createPayment: async (paymentData) => {
+  createPayment: async (paymentData: any) => {
     const response = await api.post("/create-payment", paymentData)
     return response.data
   },
 
   // Get payment status
-  getPaymentStatus: async (collect_request_id, school_id) => {
+  getPaymentStatus: async (collect_request_id: any, school_id: any) => {
     const response = await api.get(`/payment-status/${collect_request_id}?school_id=${school_id}`)
     return response.data
   },
@@ -39,28 +41,45 @@ export const transactionService = {
   // Get all transactions with pagination, sorting, and filtering
   getAllTransactions: async (
     page = 1,
-    limit = 10,
     sort = "payment_time",
     order = "desc",
     status = "",
     fromDate = "",
     toDate = "",
     search = "",
+    limit = 10,
   ) => {
     const params = new URLSearchParams()
     params.append("page", page.toString())
-    params.append("limit", limit.toString())
     params.append("sort", sort)
     params.append("order", order)
+    params.append("limit", limit.toString())
 
-    if (status) params.append("status", status)
+    // Handle multiple status values
+    if (status) {
+      params.append("status", status)
+    }
+
+    // Add date range parameters if provided
     if (fromDate) params.append("fromDate", fromDate)
     if (toDate) params.append("toDate", toDate)
+
+    // Add search parameter if provided
     if (search) params.append("search", search)
 
     try {
+      console.log(`Fetching transactions with params: ${params.toString()}`)
       const response = await api.get(`/transactions?${params.toString()}`)
-      return response.data
+      console.log("Response:", response.data)
+
+      // Return formatted response with data and pagination info
+      return {
+        data: response.data.data || [],
+        total: response.data.meta?.total || 0,
+        page: response.data.meta?.page || 1,
+        limit: response.data.meta?.limit || 10,
+        pages: response.data.meta?.pages || 1,
+      }
     } catch (error) {
       console.error("Error fetching transactions:", error)
       throw error
@@ -69,30 +88,47 @@ export const transactionService = {
 
   // Get transactions for a specific school
   getSchoolTransactions: async (
-    schoolId,
+    schoolId: any,
     page = 1,
-    limit = 10,
     sort = "payment_time",
     order = "desc",
     status = "",
     fromDate = "",
     toDate = "",
     search = "",
+    limit = 10,
   ) => {
     const params = new URLSearchParams()
     params.append("page", page.toString())
-    params.append("limit", limit.toString())
     params.append("sort", sort)
     params.append("order", order)
+    params.append("limit", limit.toString())
 
-    if (status) params.append("status", status)
+    // Handle multiple status values
+    if (status) {
+      params.append("status", status)
+    }
+
+    // Add date range parameters if provided
     if (fromDate) params.append("fromDate", fromDate)
     if (toDate) params.append("toDate", toDate)
+
+    // Add search parameter if provided
     if (search) params.append("search", search)
 
     try {
+      console.log(`Fetching school transactions with params: ${params.toString()}`)
       const response = await api.get(`/transactions/school/${schoolId}?${params.toString()}`)
-      return response.data
+      console.log("Response:", response.data)
+
+      // Return formatted response with data and pagination info
+      return {
+        data: response.data.data || [],
+        total: response.data.meta?.total || 0,
+        page: response.data.meta?.page || 1,
+        limit: response.data.meta?.limit || 10,
+        pages: response.data.meta?.pages || 1,
+      }
     } catch (error) {
       console.error("Error fetching school transactions:", error)
       throw error
@@ -100,23 +136,12 @@ export const transactionService = {
   },
 
   // Check transaction status by custom order ID
-  getTransactionStatus: async (customOrderId) => {
+  getTransactionStatus: async (customOrderId: any) => {
     try {
       const response = await api.get(`/transaction-status/${customOrderId}`)
       return response.data
     } catch (error) {
       console.error("Error checking transaction status:", error)
-      throw error
-    }
-  },
-
-  // Get total count from order statuses table
-  getOrderStatusesCount: async () => {
-    try {
-      const response = await api.get('/order-statuses/count')
-      return response.data
-    } catch (error) {
-      console.error("Error getting order statuses count:", error)
       throw error
     }
   },
